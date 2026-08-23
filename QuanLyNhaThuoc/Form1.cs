@@ -29,6 +29,7 @@ namespace QuanLyNhaThuoc
 		// Controls POS Right (Thẻ VIP & Quy đổi điểm)
 		private DataGridView dgvKhachHangPos;
 		private TextBox txtPosSearchKhach;
+		private bool dangMoFormThemKhachNhanh = false;
 		private Label lblPosKhachTen, lblPosKhachHangVIP, lblPosKhachDiem;
 		private Label lblPosGiamGiaTien, lblPosDiemDuyet;
 		private NumericUpDown numPosDiemDoi;
@@ -58,7 +59,6 @@ namespace QuanLyNhaThuoc
 		private Label lblTopTenThuoc;
 		private Label lblTopChiTiet;
 		private ComboBox cboPosDonViTinh;
-
 		private bool isUpdatingSearchText = false; // Biến cờ ngăn đụng độ sự kiện khi click chọn dòng
 		public Form1()
 		{
@@ -513,8 +513,7 @@ namespace QuanLyNhaThuoc
 					Math.Max(100, pnlSearchKhachTop.Width - 135);
 			};
 			txtPosSearchKhach.Width = pnlSearchKhachTop.Width - 140;
-			txtPosSearchKhach.TextChanged += (s, e) => { if (!isUpdatingSearch) LoadKhachHangToPosGrid(); };
-
+			txtPosSearchKhach.TextChanged += TxtPosSearchKhach_TextChanged;
 			pnlSearchKhachTop.Controls.AddRange(new Control[] { lblSearchKhach, txtPosSearchKhach, btnXoaKhachText });
 
 			dgvKhachHangPos = new DataGridView { Dock = DockStyle.Fill };
@@ -623,6 +622,440 @@ namespace QuanLyNhaThuoc
 			LoadThuocToPosGrid();
 			LoadKhachHangToPosGrid();
 		}
+		private void TxtPosSearchKhach_TextChanged(
+		object sender,
+		EventArgs e)
+		{
+			if (isUpdatingSearch)
+				return;
+
+
+			// Vẫn giữ chức năng tìm kiếm cũ
+			LoadKhachHangToPosGrid();
+
+
+			string sdt =
+				txtPosSearchKhach.Text.Trim();
+
+
+			// Chưa đủ 10 số
+			// => chỉ tìm kiếm bình thường
+			if (sdt.Length != 10)
+				return;
+
+
+			// Phải là 10 chữ số
+			if (!sdt.All(char.IsDigit))
+				return;
+
+
+			// Kiểm tra khách tồn tại chính xác theo SĐT
+			bool daCoKhach =
+				QuanLyNhaThuocData
+				.DanhSachKhachHang
+				.Any(k =>
+					k != null &&
+					k.SoDienThoai == sdt
+				);
+
+
+			// Có khách rồi
+			// => KHÔNG mở form thêm
+			if (daCoKhach)
+				return;
+
+
+			// Chống mở popup liên tục
+			if (dangMoFormThemKhachNhanh)
+				return;
+
+
+			// Không có khách
+			// => hiện form đăng ký nhanh
+			HienThiFormThemKhachNhanh(sdt);
+		}
+		private void ResetKhachHangPos()
+		{
+			selectedKhachHangPos = null;
+
+			if (lblPosKhachTen != null)
+				lblPosKhachTen.Text =
+					"Khách hàng: Khách Lẻ (Chưa chọn)";
+
+			if (lblPosKhachHangVIP != null)
+			{
+				lblPosKhachHangVIP.Text =
+					"Hạng thành viên: --";
+
+				lblPosKhachHangVIP.ForeColor =
+					Color.DimGray;
+			}
+
+			if (lblPosKhachDiem != null)
+				lblPosKhachDiem.Text =
+					"Tích lũy: 0 điểm (= 0 VNĐ) | Điểm kỳ VIP: 0";
+
+			if (numPosDiemDoi != null)
+			{
+				numPosDiemDoi.Value = 0;
+				numPosDiemDoi.Maximum = 0;
+				numPosDiemDoi.Enabled = false;
+			}
+
+			CapNhatGioiHanDiemPos();
+		}
+		private void HienThiFormThemKhachNhanh(string soDienThoai)
+		{
+			dangMoFormThemKhachNhanh = true;
+
+
+			Form frm = new Form
+			{
+				Text = "👤 THÊM KHÁCH HÀNG MỚI",
+				Width = 470,
+				Height = 285,
+				StartPosition = FormStartPosition.CenterParent,
+				FormBorderStyle = FormBorderStyle.FixedDialog,
+				MaximizeBox = false,
+				MinimizeBox = false,
+				BackColor = Color.FromArgb(245, 247, 250),
+				Font = new Font(
+					"Segoe UI",
+					9.5F,
+					FontStyle.Regular
+				)
+			};
+
+
+			// ============================================================
+			// TIÊU ĐỀ
+			// ============================================================
+			Label lblTitle = new Label
+			{
+				Text = "👤 ĐĂNG KÝ KHÁCH HÀNG THÀNH VIÊN",
+				Location = new Point(25, 20),
+				AutoSize = true,
+				Font = new Font(
+					"Segoe UI",
+					12F,
+					FontStyle.Bold
+				),
+				ForeColor = Color.FromArgb(24, 43, 73)
+			};
+
+
+			Label lblGoiY = new Label
+			{
+				Text =
+					"Số điện thoại chưa tồn tại trong hệ thống.\n" +
+					"Chỉ cần nhập họ tên để đăng ký khách hàng mới.",
+				Location = new Point(25, 53),
+				AutoSize = true,
+				Font = new Font(
+					"Segoe UI",
+					8.8F,
+					FontStyle.Italic
+				),
+				ForeColor = Color.DimGray
+			};
+
+
+			// ============================================================
+			// SĐT - TỰ ĐIỀN VÀ KHÔNG CHO SỬA
+			// ============================================================
+			Label lblSdt = new Label
+			{
+				Text = "Số điện thoại:",
+				Location = new Point(25, 100),
+				AutoSize = true,
+				Font = new Font(
+					"Segoe UI",
+					9.5F,
+					FontStyle.Bold
+				)
+			};
+
+
+			TextBox txtSdtMoi = new TextBox
+			{
+				Text = soDienThoai,
+				Location = new Point(135, 96),
+				Width = 275,
+				ReadOnly = true,
+				BackColor = Color.WhiteSmoke,
+				Font = new Font(
+					"Segoe UI",
+					10F,
+					FontStyle.Bold
+				)
+			};
+
+
+			// ============================================================
+			// HỌ TÊN
+			// ============================================================
+			Label lblTen = new Label
+			{
+				Text = "Họ và tên:",
+				Location = new Point(25, 140),
+				AutoSize = true,
+				Font = new Font(
+					"Segoe UI",
+					9.5F,
+					FontStyle.Bold
+				)
+			};
+
+
+			TextBox txtTenMoi = new TextBox
+			{
+				Location = new Point(135, 136),
+				Width = 275,
+				Font = new Font(
+					"Segoe UI",
+					10F
+				)
+			};
+
+
+			// ============================================================
+			// NÚT HỦY
+			// ============================================================
+			Button btnHuy = new Button
+			{
+				Text = "✖ Hủy",
+				Location = new Point(215, 185),
+				Width = 90,
+				Height = 35,
+				BackColor = Color.FromArgb(108, 117, 125),
+				ForeColor = Color.White,
+				FlatStyle = FlatStyle.Flat,
+				Font = new Font(
+					"Segoe UI",
+					9F,
+					FontStyle.Bold
+				),
+				Cursor = Cursors.Hand
+			};
+
+			btnHuy.FlatAppearance.BorderSize = 0;
+
+
+			// ============================================================
+			// NÚT THÊM KHÁCH
+			// ============================================================
+			Button btnThem = new Button
+			{
+				Text = "➕ THÊM KHÁCH",
+				Location = new Point(315, 185),
+				Width = 125,
+				Height = 35,
+				BackColor = Color.FromArgb(40, 167, 69),
+				ForeColor = Color.White,
+				FlatStyle = FlatStyle.Flat,
+				Font = new Font(
+					"Segoe UI",
+					9F,
+					FontStyle.Bold
+				),
+				Cursor = Cursors.Hand
+			};
+
+			btnThem.FlatAppearance.BorderSize = 0;
+
+
+			// ============================================================
+			// NÚT HỦY
+			// ============================================================
+			btnHuy.Click += (s, e) =>
+			{
+				frm.DialogResult =
+					DialogResult.Cancel;
+
+				frm.Close();
+			};
+
+
+			// ============================================================
+			// THÊM KHÁCH
+			// ============================================================
+			btnThem.Click += (s, e) =>
+			{
+				string hoTen =
+					txtTenMoi.Text.Trim();
+
+
+				if (string.IsNullOrWhiteSpace(hoTen))
+				{
+					MessageBox.Show(
+						"Vui lòng nhập họ và tên khách hàng!",
+						"Thiếu thông tin",
+						MessageBoxButtons.OK,
+						MessageBoxIcon.Warning
+					);
+
+					txtTenMoi.Focus();
+
+					return;
+				}
+
+
+				// Kiểm tra lại lần cuối tránh trùng
+				bool biTrung =
+					QuanLyNhaThuocData
+					.DanhSachKhachHang
+					.Any(k =>
+						k != null &&
+						k.SoDienThoai == soDienThoai
+					);
+
+
+				if (biTrung)
+				{
+					MessageBox.Show(
+						"Số điện thoại này đã tồn tại trong hệ thống!",
+						"Trùng khách hàng",
+						MessageBoxButtons.OK,
+						MessageBoxIcon.Warning
+					);
+
+					return;
+				}
+
+
+				// ========================================================
+				// TẠO KHÁCH HÀNG MỚI
+				// ========================================================
+				KhachHang khMoi =
+					new KhachHang
+					{
+						SoDienThoai =
+							soDienThoai,
+
+						HoTen =
+							hoTen,
+
+						CapVip =
+							1,
+
+						NgayThangHang =
+							DateTime.Today,
+
+						TongDiemTichLuy =
+							0
+					};
+
+
+				QuanLyNhaThuocData
+					.DanhSachKhachHang
+					.Add(khMoi);
+
+
+				// Lưu xuống khachhang.txt
+				QuanLyNhaThuocData
+					.LuuFileKhachHang();
+
+
+				MessageBox.Show(
+					$"Đã thêm khách hàng [{hoTen}] thành công!\n\n" +
+					$"SĐT: {soDienThoai}\n" +
+					"Hạng ban đầu: Thành Viên\n" +
+					"Điểm ban đầu: 0 điểm",
+					"Thêm khách hàng thành công",
+					MessageBoxButtons.OK,
+					MessageBoxIcon.Information
+				);
+
+
+				frm.DialogResult =
+					DialogResult.OK;
+
+				frm.Close();
+			};
+
+
+			frm.Controls.AddRange(
+				new Control[]
+				{
+			lblTitle,
+			lblGoiY,
+			lblSdt,
+			txtSdtMoi,
+			lblTen,
+			txtTenMoi,
+			btnHuy,
+			btnThem
+				}
+			);
+
+
+			frm.Shown += (s, e) =>
+			{
+				txtTenMoi.Focus();
+			};
+
+
+			DialogResult ketQua =
+				frm.ShowDialog(this);
+
+
+			dangMoFormThemKhachNhanh = false;
+
+
+			// ============================================================
+			// NẾU THÊM THÀNH CÔNG
+			// ============================================================
+			if (ketQua == DialogResult.OK)
+			{
+				// Giữ đúng SĐT trong ô tìm kiếm
+				isUpdatingSearch = true;
+
+				txtPosSearchKhach.Text =
+					soDienThoai;
+
+				isUpdatingSearch = false;
+
+
+				LoadKhachHangToPosGrid();
+
+
+				// ========================================================
+				// TỰ CHỌN KHÁCH VỪA TẠO
+				// ========================================================
+				foreach (DataGridViewRow row
+						 in dgvKhachHangPos.Rows)
+				{
+					if (row.Cells["SĐT"]
+							.Value?
+							.ToString() ==
+						soDienThoai)
+					{
+						row.Selected = true;
+
+						dgvKhachHangPos.CurrentCell =
+							row.Cells["SĐT"];
+
+						break;
+					}
+				}
+
+
+				// Cập nhật thẻ khách hàng ngay
+				DgvKhachHangPos_SelectionChanged(
+					null,
+					null
+				);
+			}
+			else
+			{
+				// Người dùng hủy:
+				// vẫn để nguyên SĐT đã gõ để họ có thể sửa
+				txtPosSearchKhach.Focus();
+
+				txtPosSearchKhach.SelectionStart =
+					txtPosSearchKhach.Text.Length;
+			}
+		}
 		// Hàm tính tiền giảm giá & tổng đơn hàng POS
 		private void CapNhatGioiHanDiemPos()
 		{
@@ -726,33 +1159,92 @@ namespace QuanLyNhaThuoc
 		}
 		private void LoadKhachHangToPosGrid()
 		{
-			if (QuanLyNhaThuocData.DanhSachKhachHang == null) return;
+			if (QuanLyNhaThuocData.DanhSachKhachHang == null)
+				return;
 
-			// Kiểm tra hạn bảo lưu hạng. Nếu có thay đổi thì lưu ngay xuống file 5 cột.
+			// ============================================================
+			// GIỮ NGUYÊN LOGIC VIP HIỆN TẠI CỦA BẠN
+			// ============================================================
 			bool coThayDoiVip = false;
+
 			foreach (var kh in QuanLyNhaThuocData.DanhSachKhachHang)
 			{
-				if (kh != null && kh.KiemTraCapNhatHangVipLongChau())
+				if (kh != null &&
+					kh.KiemTraCapNhatHangVipLongChau())
+				{
 					coThayDoiVip = true;
+				}
 			}
 
 			if (coThayDoiVip)
+			{
 				QuanLyNhaThuocData.LuuFileKhachHang();
+			}
 
-			string kw = txtPosSearchKhach?.Text?.Trim().ToLower() ?? "";
 
-			dgvKhachHangPos.DataSource = null;
-			dgvKhachHangPos.DataSource = QuanLyNhaThuocData.DanhSachKhachHang
-				.Where(k => k != null && (string.IsNullOrEmpty(kw) ||
-							(k.SoDienThoai != null && k.SoDienThoai.Contains(kw)) ||
-							(k.HoTen != null && k.HoTen.ToLower().Contains(kw))))
-				.Select(k => new {
+			// ============================================================
+			// TỪ KHÓA TÌM KIẾM
+			// ============================================================
+			string kw =
+				txtPosSearchKhach?
+				.Text?
+				.Trim()
+				.ToLower()
+				?? "";
+
+
+			// ============================================================
+			// LỌC DANH SÁCH
+			// ============================================================
+			var dsLoc =
+				QuanLyNhaThuocData.DanhSachKhachHang
+				.Where(k =>
+					k != null &&
+					(
+						string.IsNullOrEmpty(kw)
+						||
+						(
+							k.SoDienThoai != null &&
+							k.SoDienThoai.Contains(kw)
+						)
+						||
+						(
+							k.HoTen != null &&
+							k.HoTen.ToLower().Contains(kw)
+						)
+					)
+				)
+				.Select(k => new
+				{
 					SĐT = k.SoDienThoai ?? "",
 					Họ_Tên = k.HoTen ?? "",
 					Điểm = k.DiemKhaDung,
-					// Hạng đang được bảo lưu, không suy lại từ số dư điểm.
+
+					// GIỮ NGUYÊN:
+					// Hạng đang được bảo lưu,
+					// không suy lại từ số dư điểm.
 					Hạng = k.HangVip
-				}).ToList();
+				})
+				.ToList();
+
+
+			// ============================================================
+			// ĐƯA LÊN BẢNG
+			// ============================================================
+			dgvKhachHangPos.DataSource = null;
+			dgvKhachHangPos.DataSource = dsLoc;
+
+
+			// ============================================================
+			// MỚI:
+			// NẾU KHÔNG TÌM THẤY KHÁCH
+			// THÌ KHÔNG GIỮ THẺ KHÁCH CŨ Ở PHÍA DƯỚI
+			// ============================================================
+			if (!string.IsNullOrWhiteSpace(kw) &&
+				dsLoc.Count == 0)
+			{
+				ResetKhachHangPos();
+			}
 		}
 
 		private void dgvKhachHangPos_CellFormatting(object sender, DataGridViewCellFormattingEventArgs e)
