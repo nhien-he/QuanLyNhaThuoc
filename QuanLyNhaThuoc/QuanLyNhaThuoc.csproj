@@ -52,16 +52,27 @@
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormLichSuLoNhap.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="FormLichSuNhapQua.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="FormNhapKho.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="FormNhapKho.Designer.cs">
       <DependentUpon>FormNhapKho.cs</DependentUpon>
     </Compile>
+    <Compile Include="FormNhapQuaTang.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="KhachHang.cs" />
+    <Compile Include="LoNhapKho.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="QuanLyKhachHang.cs" />
+    <Compile Include="QuanLyKhoQuaTangData.cs" />
     <Compile Include="QuanLyNhaThuocData.cs" />
     <Compile Include="Thuoc.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">

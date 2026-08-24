@@ -91,8 +91,16 @@ namespace QuanLyNhaThuoc
 
 			// 4. Số lô
 			pnl.Controls.Add(new Label { Text = "Số Lô (Batch No):", Anchor = AnchorStyles.Left }, 0, 3);
-			txtSoLo = new TextBox { Dock = DockStyle.Fill, Text = "LOT-" + DateTime.Now.ToString("yyyyMMdd") };
-			pnl.Controls.Add(txtSoLo, 1, 3);
+			txtSoLo = new TextBox
+			{
+				Dock = DockStyle.Fill,
+
+				Text =
+					QuanLyLoNhapKhoData.TaoMaLoMoi(
+						_thuocChon.MaThuoc,
+						DateTime.Now
+					)
+			}; pnl.Controls.Add(txtSoLo, 1, 3);
 
 			// 5. Hạn sử dụng
 			pnl.Controls.Add(new Label { Text = "Hạn Sử Dụng (HSD):", Anchor = AnchorStyles.Left }, 0, 4);
@@ -163,7 +171,58 @@ namespace QuanLyNhaThuoc
 				MessageBox.Show("Vui lòng nhập đơn giá hợp lệ!", "Lỗi nhập liệu", MessageBoxButtons.OK, MessageBoxIcon.Error);
 				return;
 			}
+			// ============================================================
+			// KIỂM TRA SỐ LÔ
+			// ============================================================
+			string maLo =
+				txtSoLo.Text.Trim();
 
+
+			if (string.IsNullOrWhiteSpace(maLo))
+			{
+				MessageBox.Show(
+					"Vui lòng nhập số lô!",
+					"Thiếu số lô",
+					MessageBoxButtons.OK,
+					MessageBoxIcon.Warning
+				);
+
+				txtSoLo.Focus();
+
+				return;
+			}
+
+
+			if (QuanLyLoNhapKhoData.MaLoDaTonTai(maLo))
+			{
+				MessageBox.Show(
+					$"Số lô [{maLo}] đã tồn tại!\n" +
+					"Vui lòng sử dụng số lô khác.",
+					"Trùng số lô",
+					MessageBoxButtons.OK,
+					MessageBoxIcon.Warning
+				);
+
+				txtSoLo.Focus();
+
+				return;
+			}
+
+
+			// ============================================================
+			// KIỂM TRA HẠN SỬ DỤNG
+			// ============================================================
+			if (dtpHanSuDung.Value.Date <= DateTime.Today)
+			{
+				MessageBox.Show(
+					"Hạn sử dụng phải lớn hơn ngày hiện tại!",
+					"Hạn sử dụng không hợp lệ",
+					MessageBoxButtons.OK,
+					MessageBoxIcon.Warning
+				);
+
+				return;
+			}
 			string donViChon = lblDonViNhap.Text;
 
 			// 🎯 TỰ ĐỘNG QUY ĐỔI SỐ VIÊN THEO ĐƠN VỊ TÍNH NGUYÊN ĐÓNG GÓI
@@ -174,10 +233,65 @@ namespace QuanLyNhaThuoc
 
 			_thuocChon.SoLuongTonVien += soVienQuyDoi;
 			QuanLyNhaThuocData.LuuFileThuoc();
+			// ============================================================
+			// LƯU LỊCH SỬ LÔ NHẬP
+			// ============================================================
+			LoNhapKho loMoi =
+				new LoNhapKho
+				{
+					MaLo =
+						maLo,
 
-			MessageBox.Show($"Đã nhập kho thành công cho [{_thuocChon.TenThuoc}]:\n• Số lượng: +{slNhap} {donViChon} ({soVienQuyDoi} viên)\n• Đơn giá: {giaNhap:N0} VNĐ/{donViChon}\n• Tổng tiền lô: {(slNhap * giaNhap):N0} VNĐ\n• HSD: {dtpHanSuDung.Value:dd/MM/yyyy}",
-				"Nhập kho thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
+					MaThuoc =
+						_thuocChon.MaThuoc,
 
+					TenThuoc =
+						_thuocChon.TenThuoc,
+
+					NhaCungCap =
+						cboNhaCungCap.Text,
+
+					NgayNhap =
+						DateTime.Now,
+
+					HanSuDung =
+						dtpHanSuDung.Value.Date,
+
+					SoLuongNhap =
+						slNhap,
+
+					DonViTinh =
+						donViChon,
+
+					DonGiaNhap =
+						giaNhap
+				};
+
+
+			QuanLyLoNhapKhoData.ThemLo(loMoi);
+			MessageBox.Show(
+				$"Đã nhập kho thành công!\n\n" +
+
+				$"• Mặt hàng: {_thuocChon.TenThuoc}\n" +
+
+				$"• Số lô: {maLo}\n" +
+
+				$"• Đại lý: {cboNhaCungCap.Text}\n" +
+
+				$"• Số lượng: +{slNhap} {donViChon} " +
+				$"({soVienQuyDoi:N0} viên quy đổi)\n" +
+
+				$"• Đơn giá nhập: {giaNhap:N0} VNĐ/{donViChon}\n" +
+
+				$"• Thành tiền: {(slNhap * giaNhap):N0} VNĐ\n" +
+
+				$"• HSD: {dtpHanSuDung.Value:dd/MM/yyyy}",
+
+				"Nhập kho thành công",
+
+				MessageBoxButtons.OK,
+				MessageBoxIcon.Information
+			);
 			this.DialogResult = DialogResult.OK;
 			this.Close();
 		}

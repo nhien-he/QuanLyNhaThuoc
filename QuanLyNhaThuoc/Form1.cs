@@ -96,7 +96,7 @@ namespace QuanLyNhaThuoc
 			sidebarPanel = new Panel { Dock = DockStyle.Left, Width = 220, BackColor = Color.FromArgb(24, 43, 73) };
 			Label lblLogo = new Label
 			{
-				Text = "💊 NHÀ THUỐC VIP",
+				Text = "💊 NHÀ THUỐC SIÊU NHÂN",
 				Font = new Font("Segoe UI", 13F, FontStyle.Bold),
 				ForeColor = Color.White,
 				Dock = DockStyle.Top,
@@ -2507,6 +2507,65 @@ namespace QuanLyNhaThuoc
 			txtKhoSearch.TextChanged += (s, e) => LoadKhoThuocGrid(txtKhoSearch.Text);
 
 			Button btnNhapHang = new Button { Text = "📦 Nhập Hàng Tồn", Location = new Point(440, 5), Width = 140, Height = 32, BackColor = Color.FromArgb(0, 122, 204), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold) };
+			Button btnXemLoNhap = new Button
+			{
+				Text = "📋 Xem Lô Nhập",
+				Location = new Point(730, 5),                
+				Width = 130,
+				Height = 32,
+
+				BackColor =
+		Color.FromArgb(
+			88,
+			101,
+			242
+		),
+
+				ForeColor =
+		Color.White,
+
+				FlatStyle =
+		FlatStyle.Flat,
+
+				Font =
+		new Font(
+			"Segoe UI",
+			9F,
+			FontStyle.Bold
+		),
+
+				Cursor =
+		Cursors.Hand
+			};
+			btnXemLoNhap.Click += (s, e) =>
+			{
+				string maThuocChon = "";
+
+
+				// Nếu đang chọn một thuốc
+				// thì mở lịch sử và tự lọc thuốc đó.
+				if (dgvKhoThuoc != null &&
+					dgvKhoThuoc.CurrentRow != null &&
+					dgvKhoThuoc.CurrentRow.Cells["Mã"].Value != null)
+				{
+					maThuocChon =
+						dgvKhoThuoc
+							.CurrentRow
+							.Cells["Mã"]
+							.Value
+							.ToString();
+				}
+
+
+				using (FormLichSuLoNhap frm =
+					new FormLichSuLoNhap(
+						maThuocChon
+					))
+				{
+					frm.ShowDialog(this);
+				}
+			};
+			btnXemLoNhap.FlatAppearance.BorderSize = 0;
 			btnNhapHang.Click += BtnNhapHang_Click;
 
 			Button btnXoaSearch = new Button { Text = "❌ Xóa Tìm Kiếm", Location = new Point(590, 5), Width = 130, Height = 32, BackColor = Color.FromArgb(108, 117, 125), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 9.5F, FontStyle.Bold), Cursor = Cursors.Hand };
@@ -2516,8 +2575,16 @@ namespace QuanLyNhaThuoc
 				LoadKhoThuocGrid("");
 			};
 
-			pnlTop.Controls.AddRange(new Control[] { lblSearch, txtKhoSearch, btnNhapHang, btnXoaSearch });
-
+			pnlTop.Controls.AddRange(
+				new Control[]
+				{
+		lblSearch,
+		txtKhoSearch,
+		btnNhapHang,
+		btnXemLoNhap,
+		btnXoaSearch
+				}
+			);
 			dgvKhoThuoc = new DataGridView { Dock = DockStyle.Fill };
 			StyleDataGridView(dgvKhoThuoc);
 
@@ -2699,16 +2766,47 @@ namespace QuanLyNhaThuoc
 			var topDiem = QuanLyNhaThuocData.DanhSachKhachHang.OrderByDescending(k => k.DiemKhaDung).FirstOrDefault();
 			if (topDiem != null) { l1v.Text = topDiem.HoTen; l1s.Text = $"Tích lũy: {topDiem.DiemKhaDung:N0} điểm"; }
 
-			var topSpender = QuanLyNhaThuocData.DanhSachDonHang.Where(d => d.SoDienThoai != "KHACH-LE")
-				.GroupBy(d => d.SoDienThoai).Select(g => new { Sdt = g.Key, Total = g.Sum(x => x.TongTien) })
-				.OrderByDescending(x => x.Total).FirstOrDefault();
-			if (topSpender != null)
-			{
-				var kh = QuanLyNhaThuocData.DanhSachKhachHang.FirstOrDefault(k => k.SoDienThoai == topSpender.Sdt);
-				l2v.Text = kh != null ? kh.HoTen : topSpender.Sdt;
-				l2s.Text = $"Tổng chi: {topSpender.Total:N0} VNĐ";
-			}
+			// ============================================================
+			// TOP SPENDER
+			// Chỉ xét khách hàng hiện còn trong hệ thống.
+			// Chỉ tính hóa đơn bán hàng HD..., không tính đổi quà DQ...
+			// ============================================================
+			var topSpender =
+				QuanLyNhaThuocData.DanhSachKhachHang
+				.Where(k => k != null)
+				.Select(k => new
+				{
+					KhachHang = k,
 
+					TongChi =
+						QuanLyNhaThuocData.DanhSachDonHang
+						.Where(d =>
+							d != null &&
+							d.SoDienThoai == k.SoDienThoai &&
+							!string.IsNullOrWhiteSpace(d.MaHoaDon) &&
+							d.MaHoaDon.StartsWith("HD"))
+						.Sum(d => d.TongTien)
+				})
+				.OrderByDescending(x => x.TongChi)
+				.FirstOrDefault();
+
+
+			if (topSpender != null && topSpender.TongChi > 0)
+			{
+				// Luôn hiển thị TÊN KHÁCH
+				l2v.Text =
+					string.IsNullOrWhiteSpace(topSpender.KhachHang.HoTen)
+					? "Khách hàng"
+					: topSpender.KhachHang.HoTen;
+
+				l2s.Text =
+					$"Tổng chi: {topSpender.TongChi:N0} VNĐ";
+			}
+			else
+			{
+				l2v.Text = "Chưa có dữ liệu";
+				l2s.Text = "Chưa phát sinh mua hàng";
+			}
 			l3v.Text = QuanLyNhaThuocData.DanhSachKhachHang.Count.ToString() + " Khách";
 			l3s.Text = "Đã đăng ký thẻ thành viên";
 
@@ -2907,94 +3005,335 @@ namespace QuanLyNhaThuoc
 		{
 			mainContentPanel.Controls.Clear();
 
+			// Nạp tồn kho quà + lịch sử nhập quà
+			QuanLyKhoQuaTangData.KhoiTao();
+
+
+			// ============================================================
+			// BỐ CỤC CHÍNH: 2 CỘT 50% - 50%
+			// ============================================================
 			TableLayoutPanel pnlMain = new TableLayoutPanel
 			{
 				Dock = DockStyle.Fill,
 				ColumnCount = 2,
-				RowCount = 1
+				RowCount = 1,
+				Margin = new Padding(0),
+				Padding = new Padding(0)
 			};
-			pnlMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
-			pnlMain.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
 
-			// =========================================================================
-			// CỘT 1: DANH SÁCH QUÀ TẶNG (CÓ ICON 📌 VÀ IN ĐẬM LỌC KHOẢNG ĐIỂM)
-			// =========================================================================
+			pnlMain.ColumnStyles.Add(
+				new ColumnStyle(SizeType.Percent, 50F)
+			);
+
+			pnlMain.ColumnStyles.Add(
+				new ColumnStyle(SizeType.Percent, 50F)
+			);
+
+			pnlMain.RowStyles.Add(
+				new RowStyle(SizeType.Percent, 100F)
+			);
+
+
+			// ============================================================
+			// CỘT 1: DANH SÁCH QUÀ TẶNG
+			// ============================================================
 			GroupBox gbQua = new GroupBox
 			{
 				Text = "🎁 1. DANH SÁCH QUÀ TẶNG THIẾT YẾU",
 				Dock = DockStyle.Fill,
-				Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-				Padding = new Padding(8, 25, 8, 8)
+				Font = new Font(
+					"Segoe UI",
+					10F,
+					FontStyle.Bold
+				),
+				Padding = new Padding(8, 25, 8, 8),
+				Margin = new Padding(0, 0, 5, 0)
 			};
 
-			Panel pnlFilterQua = new Panel { Dock = DockStyle.Top, Height = 40 };
 
-			// 🎯 THÊM LẠI ICON 📌 VÀ IN ĐẬM TẠI ĐÂY
+			// ============================================================
+			// LAYOUT RIÊNG CHO CỘT QUÀ
+			//
+			// Hàng 1: Bộ lọc        42px
+			// Hàng 2: Bảng quà      Fill
+			// Hàng 3: Hai nút       45px
+			// ============================================================
+			TableLayoutPanel pnlQuaLayout = new TableLayoutPanel
+			{
+				Dock = DockStyle.Fill,
+				ColumnCount = 1,
+				RowCount = 3,
+				Margin = new Padding(0),
+				Padding = new Padding(0)
+			};
+
+			pnlQuaLayout.ColumnStyles.Add(
+				new ColumnStyle(SizeType.Percent, 100F)
+			);
+
+			pnlQuaLayout.RowStyles.Add(
+				new RowStyle(SizeType.Absolute, 42F)
+			);
+
+			pnlQuaLayout.RowStyles.Add(
+				new RowStyle(SizeType.Percent, 100F)
+			);
+
+			pnlQuaLayout.RowStyles.Add(
+				new RowStyle(SizeType.Absolute, 45F)
+			);
+
+
+			// ============================================================
+			// HÀNG 1: BỘ LỌC QUÀ
+			// ============================================================
+			Panel pnlFilterQua = new Panel
+			{
+				Dock = DockStyle.Fill,
+				Margin = new Padding(0),
+				Padding = new Padding(0),
+				BackColor = Color.Transparent
+			};
+
+
 			Label lblFilter = new Label
 			{
 				Text = "📌 Lọc khoảng điểm:",
 				Location = new Point(8, 9),
 				AutoSize = true,
-				Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
+				Font = new Font(
+					"Segoe UI",
+					9.5F,
+					FontStyle.Bold
+				)
 			};
 
-			// Chỉnh tọa độ X = 155 để tạo khoảng trống thoáng cho dòng chữ đậm + icon
+
 			cboLocDiemQua = new ComboBox
 			{
 				Location = new Point(155, 6),
 				Width = 210,
 				DropDownStyle = ComboBoxStyle.DropDownList,
-				Font = new Font("Segoe UI", 9.5F, FontStyle.Regular)
+				Font = new Font(
+					"Segoe UI",
+					9.5F,
+					FontStyle.Regular
+				)
 			};
 
+
 			cboLocDiemQua.Items.Clear();
-			cboLocDiemQua.Items.AddRange(new object[] {
-		"-- Tất cả quà tặng --",
-		"Dưới 1.000 điểm",
-		"Từ 1.000 - 5.000 điểm",
-		"Trên 5.000 điểm",
-		"🎁 Quà đủ điểm đổi (theo khách chọn)"
-	});
+
+			cboLocDiemQua.Items.AddRange(
+				new object[]
+				{
+			"-- Tất cả quà tặng --",
+			"Dưới 1.000 điểm",
+			"Từ 1.000 - 5.000 điểm",
+			"Trên 5.000 điểm",
+			"🎁 Quà đủ điểm đổi (theo khách chọn)"
+				}
+			);
+
 			cboLocDiemQua.SelectedIndex = 0;
+
 
 			pnlFilterQua.Controls.Add(lblFilter);
 			pnlFilterQua.Controls.Add(cboLocDiemQua);
 
-			dgvQuaTangView = new DataGridView { Dock = DockStyle.Fill };
+
+			// ============================================================
+			// HÀNG 2: BẢNG QUÀ
+			// ============================================================
+			dgvQuaTangView = new DataGridView
+			{
+				Dock = DockStyle.Fill,
+				Margin = new Padding(0)
+			};
+
 			StyleDataGridView(dgvQuaTangView);
 
-			gbQua.Controls.Add(dgvQuaTangView);
-			gbQua.Controls.Add(pnlFilterQua);
-			pnlFilterQua.SendToBack();
-			dgvQuaTangView.BringToFront();
 
-			// =========================================================================
-			// CỘT 2: TÌM KHÁCH HÀNG & NÚT XÓA
-			// =========================================================================
+			// ============================================================
+			// HÀNG 3: THANH CHỨC NĂNG
+			// CHIA ĐỀU 50% - 50%
+			// CAO 45PX = NÚT CAM BÊN PHẢI
+			// ============================================================
+			TableLayoutPanel pnlActionQua = new TableLayoutPanel
+			{
+				Dock = DockStyle.Fill,
+				ColumnCount = 2,
+				RowCount = 1,
+				Margin = new Padding(0),
+				Padding = new Padding(0)
+			};
+
+			pnlActionQua.ColumnStyles.Add(
+				new ColumnStyle(SizeType.Percent, 50F)
+			);
+
+			pnlActionQua.ColumnStyles.Add(
+				new ColumnStyle(SizeType.Percent, 50F)
+			);
+
+			pnlActionQua.RowStyles.Add(
+				new RowStyle(SizeType.Percent, 100F)
+			);
+
+
+			// ============================================================
+			// NÚT NHẬP QUÀ
+			// ============================================================
+			Button btnNhapQua = new Button
+			{
+				Text = "📦  NHẬP QUÀ",
+				Dock = DockStyle.Fill,
+
+				BackColor = Color.FromArgb(
+					40,
+					167,
+					69
+				),
+
+				ForeColor = Color.White,
+				FlatStyle = FlatStyle.Flat,
+
+				Font = new Font(
+					"Segoe UI",
+					10F,
+					FontStyle.Bold
+				),
+
+				Cursor = Cursors.Hand,
+
+				// Chừa khe giữa hai nút
+				Margin = new Padding(0, 0, 3, 0)
+			};
+
+			btnNhapQua.FlatAppearance.BorderSize = 0;
+
+
+			// ============================================================
+			// NÚT LỊCH SỬ NHẬP
+			// ============================================================
+			Button btnLichSuNhapQua = new Button
+			{
+				Text = "📋  LỊCH SỬ NHẬP",
+				Dock = DockStyle.Fill,
+
+				BackColor = Color.FromArgb(
+					52,
+					73,
+					94
+				),
+
+				ForeColor = Color.White,
+				FlatStyle = FlatStyle.Flat,
+
+				Font = new Font(
+					"Segoe UI",
+					10F,
+					FontStyle.Bold
+				),
+
+				Cursor = Cursors.Hand,
+
+				Margin = new Padding(3, 0, 0, 0)
+			};
+
+			btnLichSuNhapQua.FlatAppearance.BorderSize = 0;
+
+
+			pnlActionQua.Controls.Add(
+				btnNhapQua,
+				0,
+				0
+			);
+
+			pnlActionQua.Controls.Add(
+				btnLichSuNhapQua,
+				1,
+				0
+			);
+
+
+			// ============================================================
+			// GHÉP CỘT QUÀ THEO ĐÚNG 3 HÀNG
+			// ============================================================
+			pnlQuaLayout.Controls.Add(
+				pnlFilterQua,
+				0,
+				0
+			);
+
+			pnlQuaLayout.Controls.Add(
+				dgvQuaTangView,
+				0,
+				1
+			);
+
+			pnlQuaLayout.Controls.Add(
+				pnlActionQua,
+				0,
+				2
+			);
+
+
+			gbQua.Controls.Add(
+				pnlQuaLayout
+			);
+
+
+			// ============================================================
+			// CỘT 2: TÌM KHÁCH HÀNG + CẢNH BÁO HẠN ĐIỂM
+			// ============================================================
 			GroupBox gbKhach = new GroupBox
 			{
 				Text = "👥 2. TÌM KHÁCH HÀNG  CẢNH BÁO HẠN ĐIỂM",
 				Dock = DockStyle.Fill,
-				Font = new Font("Segoe UI", 10F, FontStyle.Bold),
-				Padding = new Padding(8, 25, 8, 8)
+
+				Font = new Font(
+					"Segoe UI",
+					10F,
+					FontStyle.Bold
+				),
+
+				Padding = new Padding(8, 25, 8, 8),
+				Margin = new Padding(5, 0, 0, 0)
 			};
 
-			Panel pnlSearchGroup = new Panel { Dock = DockStyle.Top, Height = 40 };
+
+			Panel pnlSearchGroup = new Panel
+			{
+				Dock = DockStyle.Top,
+				Height = 40
+			};
+
 
 			Label lblSearch = new Label
 			{
 				Text = "SĐT/Tên Khách:",
 				Location = new Point(8, 9),
 				AutoSize = true,
-				Font = new Font("Segoe UI", 9.5F, FontStyle.Bold)
+
+				Font = new Font(
+					"Segoe UI",
+					9.5F,
+					FontStyle.Bold
+				)
 			};
+
 
 			txtSearchKhachDoiQua = new TextBox
 			{
 				Location = new Point(125, 6),
 				Width = 190,
-				Font = new Font("Segoe UI", 10F)
+				Font = new Font(
+					"Segoe UI",
+					10F
+				)
 			};
+
 
 			Button btnXoaSearchKhach = new Button
 			{
@@ -3002,63 +3341,236 @@ namespace QuanLyNhaThuoc
 				Location = new Point(322, 5),
 				Width = 65,
 				Height = 28,
+
 				FlatStyle = FlatStyle.Flat,
-				BackColor = Color.FromArgb(220, 53, 69),
+
+				BackColor = Color.FromArgb(
+					220,
+					53,
+					69
+				),
+
 				ForeColor = Color.White,
-				Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+
+				Font = new Font(
+					"Segoe UI",
+					9F,
+					FontStyle.Bold
+				),
+
 				Cursor = Cursors.Hand
 			};
+
+			btnXoaSearchKhach.FlatAppearance.BorderSize = 0;
+
 
 			pnlSearchGroup.Controls.Add(lblSearch);
 			pnlSearchGroup.Controls.Add(txtSearchKhachDoiQua);
 			pnlSearchGroup.Controls.Add(btnXoaSearchKhach);
 
+
+			// ============================================================
+			// NÚT XÁC NHẬN ĐỔI QUÀ
+			// ============================================================
 			Button btnXacNhanDoiQua = new Button
 			{
 				Text = "🎁 XÁC NHẬN TRỪ ĐIỂM GIAO QUÀ",
 				Dock = DockStyle.Bottom,
 				Height = 45,
-				BackColor = Color.FromArgb(230, 126, 34),
+
+				BackColor = Color.FromArgb(
+					230,
+					126,
+					34
+				),
+
 				ForeColor = Color.White,
 				FlatStyle = FlatStyle.Flat,
-				Font = new Font("Segoe UI", 11F, FontStyle.Bold),
+
+				Font = new Font(
+					"Segoe UI",
+					11F,
+					FontStyle.Bold
+				),
+
 				Cursor = Cursors.Hand
 			};
 
-			dgvKhachHangDoiQua = new DataGridView { Dock = DockStyle.Fill };
-			dgvKhachHangDoiQua.CellDoubleClick += dgvKhachHangDoiQua_CellDoubleClick;
-			StyleDataGridView(dgvKhachHangDoiQua);
+			btnXacNhanDoiQua.FlatAppearance.BorderSize = 0;
 
-			gbKhach.Controls.Add(dgvKhachHangDoiQua);
-			gbKhach.Controls.Add(pnlSearchGroup);
-			gbKhach.Controls.Add(btnXacNhanDoiQua);
+
+			dgvKhachHangDoiQua = new DataGridView
+			{
+				Dock = DockStyle.Fill
+			};
+
+			dgvKhachHangDoiQua.CellDoubleClick +=
+				dgvKhachHangDoiQua_CellDoubleClick;
+
+			StyleDataGridView(
+				dgvKhachHangDoiQua
+			);
+
+
+			gbKhach.Controls.Add(
+				dgvKhachHangDoiQua
+			);
+
+			gbKhach.Controls.Add(
+				pnlSearchGroup
+			);
+
+			gbKhach.Controls.Add(
+				btnXacNhanDoiQua
+			);
+
 
 			pnlSearchGroup.SendToBack();
+
 			dgvKhachHangDoiQua.BringToFront();
 
-			pnlMain.Controls.Add(gbQua, 0, 0);
-			pnlMain.Controls.Add(gbKhach, 1, 0);
 
-			mainContentPanel.Controls.Add(pnlMain);
+			// ============================================================
+			// ĐƯA 2 CỘT VÀO MAIN
+			// ============================================================
+			pnlMain.Controls.Add(
+				gbQua,
+				0,
+				0
+			);
 
-			// =========================================================================
-			// GÁN SỰ KIỆN XỬ LÝ (SỬ DỤNG LAMBDA ĐỂ TRÁNH LỖI MISSING METHOD)
-			// =========================================================================
-			cboLocDiemQua.SelectedIndexChanged += (s, e) => ApplyQuaTangFilter();
+			pnlMain.Controls.Add(
+				gbKhach,
+				1,
+				0
+			);
 
-			txtSearchKhachDoiQua.TextChanged -= txtSearchKhachDoiQua_TextChanged;
-			txtSearchKhachDoiQua.TextChanged += txtSearchKhachDoiQua_TextChanged;
 
-			btnXoaSearchKhach.Click -= btnXoaTimKiemKhachHang_Click;
-			btnXoaSearchKhach.Click += btnXoaTimKiemKhachHang_Click;
+			mainContentPanel.Controls.Add(
+				pnlMain
+			);
 
-			dgvKhachHangDoiQua.CellClick -= dgvKhachHangDoiQua_CellClick;
-			dgvKhachHangDoiQua.CellClick += dgvKhachHangDoiQua_CellClick;
 
-			btnXacNhanDoiQua.Click -= BtnXacNhanDoiQua_Click;
-			btnXacNhanDoiQua.Click += BtnXacNhanDoiQua_Click;
+			// ============================================================
+			// CÁC SỰ KIỆN CŨ - GIỮ NGUYÊN
+			// ============================================================
+			cboLocDiemQua.SelectedIndexChanged +=
+				(s, e) =>
+					ApplyQuaTangFilter();
 
-			LoadGridQuaTang(QuanLyQuaTangData.DanhSachQua);
+
+			txtSearchKhachDoiQua.TextChanged -=
+				txtSearchKhachDoiQua_TextChanged;
+
+			txtSearchKhachDoiQua.TextChanged +=
+				txtSearchKhachDoiQua_TextChanged;
+
+
+			btnXoaSearchKhach.Click -=
+				btnXoaTimKiemKhachHang_Click;
+
+			btnXoaSearchKhach.Click +=
+				btnXoaTimKiemKhachHang_Click;
+
+
+			dgvKhachHangDoiQua.CellClick -=
+				dgvKhachHangDoiQua_CellClick;
+
+			dgvKhachHangDoiQua.CellClick +=
+				dgvKhachHangDoiQua_CellClick;
+
+
+			btnXacNhanDoiQua.Click -=
+				BtnXacNhanDoiQua_Click;
+
+			btnXacNhanDoiQua.Click +=
+				BtnXacNhanDoiQua_Click;
+
+
+			// ============================================================
+			// NÚT NHẬP QUÀ
+			// ============================================================
+			btnNhapQua.Click += (s, e) =>
+			{
+				if (dgvQuaTangView == null ||
+					dgvQuaTangView.CurrentRow == null)
+				{
+					MessageBox.Show(
+						"Vui lòng chọn quà cần nhập thêm!",
+						"Thông báo",
+						MessageBoxButtons.OK,
+						MessageBoxIcon.Warning
+					);
+
+					return;
+				}
+
+
+				string maQua =
+					dgvQuaTangView
+						.CurrentRow
+						.Cells["Mã_Quà"]
+						.Value?
+						.ToString();
+
+
+				var qua =
+					QuanLyQuaTangData
+						.DanhSachQua
+						.FirstOrDefault(q =>
+							q != null &&
+							q.MaQua == maQua
+						);
+
+
+				if (qua == null)
+				{
+					MessageBox.Show(
+						"Không tìm thấy thông tin quà tặng!",
+						"Lỗi",
+						MessageBoxButtons.OK,
+						MessageBoxIcon.Error
+					);
+
+					return;
+				}
+
+
+				using (FormNhapQuaTang frm =
+					new FormNhapQuaTang(qua))
+				{
+					if (frm.ShowDialog(this) ==
+						DialogResult.OK)
+					{
+						// Nạp lại nhưng giữ bộ lọc hiện tại
+						ApplyQuaTangFilter();
+					}
+				}
+			};
+
+
+			
+
+		// ============================================================
+		// MỚI: NÚT LỊCH SỬ NHẬP QUÀ
+		// ============================================================
+		btnLichSuNhapQua.Click += (s, e) =>
+			{
+				using (FormLichSuNhapQua frm =
+					new FormLichSuNhapQua())
+				{
+					frm.ShowDialog(this);
+				}
+			};
+
+
+			// ============================================================
+			// NẠP DỮ LIỆU BAN ĐẦU
+			// ============================================================
+			LoadGridQuaTang(
+				QuanLyQuaTangData.DanhSachQua
+			);
+
 			LoadKhachHangDoiQuaGrid("");
 		}
 		private void CboLocDiemQua_SelectedIndexChanged(object sender, EventArgs e)
@@ -3150,20 +3662,96 @@ namespace QuanLyNhaThuoc
 			LoadGridQuaTang(filtered);
 		}
 
-		private void LoadGridQuaTang(List<QuaTang> list)
+		private void LoadGridQuaTang(
+			List<QuaTang> list)
 		{
-			if (dgvQuaTangView == null) return;
-			dgvQuaTangView.DataSource = list.Select(q => new
-			{
-				Mã_Quà = q.MaQua,
-				Tên_Sản_Phẩm = q.TenSanPham,
-				Điểm_Cần = q.DiemCan.ToString("N0") + " điểm",
-				Giá_Thực = q.TriGia.ToString("N0") + " VNĐ",
-				Tồn_Kho = q.SoLuongTon
-			}).ToList();
-		}
+			if (dgvQuaTangView == null)
+				return;
 
-		// 4. HÀM LOAD BẢNG & LỌC THEO TỪ KHÓA
+
+			dgvQuaTangView.DataSource = null;
+
+
+			dgvQuaTangView.DataSource =
+				list
+				.Select(q => new
+				{
+					Mã_Quà =
+						q.MaQua,
+
+					Tên_Sản_Phẩm =
+						q.TenSanPham,
+
+					Điểm_Cần =
+						q.DiemCan
+							.ToString("N0")
+						+ " điểm",
+
+					Giá_Thực =
+						q.TriGia
+							.ToString("N0")
+						+ " VNĐ",
+
+					Tồn_Kho =
+						q.SoLuongTon <= 0
+						? "❌ HẾT QUÀ"
+
+						: q.SoLuongTon <= 10
+							? $"⚠️ {q.SoLuongTon} - Sắp hết"
+
+							: q.SoLuongTon.ToString()
+				})
+				.ToList();
+
+
+			// Tô màu
+			foreach (DataGridViewRow row
+					 in dgvQuaTangView.Rows)
+			{
+				string maQua =
+					row.Cells["Mã_Quà"]
+						.Value?
+						.ToString();
+
+
+				QuaTang qua =
+					QuanLyQuaTangData
+						.DanhSachQua
+						.FirstOrDefault(
+							q => q.MaQua == maQua
+						);
+
+
+				if (qua == null)
+					continue;
+
+
+				// Hết quà
+				if (qua.SoLuongTon <= 0)
+				{
+					row.DefaultCellStyle.BackColor =
+						Color.FromArgb(
+							255,
+							220,
+							220
+						);
+
+					row.DefaultCellStyle.ForeColor =
+						Color.DarkRed;
+				}
+
+				// Sắp hết
+				else if (qua.SoLuongTon <= 10)
+				{
+					row.DefaultCellStyle.BackColor =
+						Color.FromArgb(
+							255,
+							243,
+							205
+						);
+				}
+			}
+		}       // 4. HÀM LOAD BẢNG & LỌC THEO TỪ KHÓA
 		private void LoadKhachHangDoiQuaGrid(string keyword = "", string selectedSdt = "")
 		{
 			if (dgvKhachHangDoiQua == null || QuanLyNhaThuocData.DanhSachKhachHang == null) return;
@@ -3272,7 +3860,25 @@ namespace QuanLyNhaThuoc
 					MessageBox.Show("Khách hàng này đã vượt quá giới hạn 3 lần đổi quà trong ngày!", "Cảnh báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 					return;
 				}
+				// ============================================================
+				// KIỂM TRA TỒN QUÀ
+				// PHẢI KIỂM TRA TRƯỚC KHI TRỪ ĐIỂM KHÁCH
+				// ============================================================
+				if (qua.SoLuongTon <= 0)
+				{
+					MessageBox.Show(
+						$"Quà [{qua.TenSanPham}] hiện đã hết hàng!\n\n" +
+						"Vui lòng chọn quà khác hoặc nhập thêm tồn quà.",
 
+						"Quà đã hết",
+
+						MessageBoxButtons.OK,
+
+						MessageBoxIcon.Warning
+					);
+
+					return;
+				}
 				// 2. Kiểm tra đủ điểm khả dụng
 				if (kh.DiemKhaDung < qua.DiemCan)
 				{
@@ -3286,6 +3892,8 @@ namespace QuanLyNhaThuoc
 				kh.NgayDoiGanNhat = DateTime.Now;
 				qua.SoLuongTon--;
 
+				// Lưu tồn quà ngay sau khi giao
+				QuanLyKhoQuaTangData.LuuTonQua();
 				// 4. Ghi nhận lịch sử đổi quà chi tiết
 				var donDoiQua = new LichSuMuaHang
 				{
